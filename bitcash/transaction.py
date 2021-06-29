@@ -300,8 +300,12 @@ def construct_input_block(inputs):
 
 def create_p2pkh_transaction(private_key, unspents, outputs, custom_pushdata=False):
 
-    public_key = private_key.public_key
-    public_key_len = len(public_key).to_bytes(1, byteorder="little")
+    private_keys = []
+    if isinstance(private_key, list):
+        private_keys = private_key
+    else:
+        public_key = private_key.public_key
+        public_key_len = len(public_key).to_bytes(1, byteorder="little")
 
     scriptCode = private_key.scriptcode
     scriptCode_len = int_to_varint(len(scriptCode))
@@ -348,15 +352,29 @@ def create_p2pkh_transaction(private_key, unspents, outputs, custom_pushdata=Fal
         )
         hashed = sha256(to_be_hashed)  # BIP-143: Used for Bitcoin Cash
 
-        # signature = private_key.sign(hashed) + b'\x01'
-        signature = private_key.sign(hashed) + b"\x41"
+        if private_keys:
+            private_key = private_keys[i]
+            signature = private_key.sign(hashed) + b"\x41"
 
-        script_sig = (
-            len(signature).to_bytes(1, byteorder="little")
-            + signature
-            + public_key_len
-            + public_key
-        )
+            public_key = private_key.public_key
+            public_key_len = len(public_key).to_bytes(1, byteorder="little")
+
+            script_sig = (
+                len(signature).to_bytes(1, byteorder="little")
+                + signature
+                + public_key_len
+                + public_key
+            )
+        else:
+            # signature = private_key.sign(hashed) + b'\x01'
+            signature = private_key.sign(hashed) + b"\x41"
+
+            script_sig = (
+                len(signature).to_bytes(1, byteorder="little")
+                + signature
+                + public_key_len
+                + public_key
+            )
 
         inputs[i].script = script_sig
         inputs[i].script_len = int_to_unknown_bytes(len(script_sig), byteorder="little")
